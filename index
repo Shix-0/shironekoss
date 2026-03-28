@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prosty Czat Głosowy P2P</title>
+    <!-- Biblioteka PeerJS do obsługi połączeń głosowych -->
+    <script src="https://unpkg.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { background: #1e1e1e; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; width: 320px; }
+        h1 { font-size: 1.5rem; margin-bottom: 20px; color: #00d4ff; }
+        #my-id { background: #333; padding: 10px; border-radius: 5px; font-weight: bold; word-break: break-all; margin: 10px 0; display: block; color: #ffcc00; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: none; border-radius: 5px; background: #333; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 5px; background: #00d4ff; color: #121212; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #0099cc; }
+        #status { font-size: 0.9rem; margin-top: 15px; color: #aaa; }
+        audio { display: none; } /* Ukryty odtwarzacz, dźwięk leci w tle */
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Czat Głosowy</h1>
+
+    <div>Twoje ID (podaj je koledze):</div>
+    <span id="my-id">Łączenie z serwerem...</span>
+
+    <hr style="border: 0.5px solid #444; margin: 20px 0;">
+
+    <input type="text" id="remote-id" placeholder="Wklej ID kolegi">
+    <button id="call-btn">Połącz (Zadzwoń)</button>
+
+    <div id="status">Status: Oczekiwanie na mikrofon...</div>
+</div>
+
+<!-- Tutaj będzie odtwarzany głos rozmówcy -->
+<audio id="remote-audio" autoplay></audio>
+
+<script>
+    const peer = new Peer(); // Inicjalizacja połączenia
+    let localStream;
+    const statusText = document.getElementById('status');
+    const myIdDisplay = document.getElementById('my-id');
+    const remoteAudio = document.getElementById('remote-audio');
+
+    // 1. Poproś o dostęp do mikrofonu zaraz po wejściu na stronę
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    .then(stream => {
+        localStream = stream;
+        statusText.innerText = "Status: Mikrofon gotowy. Czekam na połączenie.";
+    })
+    .catch(err => {
+        statusText.innerText = "Błąd: Brak dostępu do mikrofonu!";
+        console.error(err);
+    });
+
+    // 2. Wyświetl Twoje ID po połączeniu z serwerem PeerJS
+    peer.on('open', (id) => {
+        myIdDisplay.innerText = id;
+    });
+
+    // 3. Reakcja na połączenie przychodzące (ktoś do Ciebie dzwoni)
+    peer.on('call', (call) => {
+        statusText.innerText = "Status: Rozmowa w toku...";
+        call.answer(localStream); // Odbierz i wyślij swój dźwięk
+
+        call.on('stream', (remoteStream) => {
+            remoteAudio.srcObject = remoteStream; // Odtwórz dźwięk kolegi
+        });
+    });
+
+    // 4. Nawiązywanie połączenia (Ty dzwonisz do kogoś)
+    document.getElementById('call-btn').onclick = () => {
+        const remoteId = document.getElementById('remote-id').value;
+        if (!remoteId) return alert("Wpisz najpierw ID kolegi!");
+
+        statusText.innerText = "Status: Łączenie...";
+        const call = peer.call(remoteId, localStream);
+
+        call.on('stream', (remoteStream) => {
+            remoteAudio.srcObject = remoteStream;
+            statusText.innerText = "Status: Połączono!";
+        });
+
+        call.on('error', (err) => {
+            statusText.innerText = "Status: Błąd połączenia!";
+            console.error(err);
+        });
+    };
+</script>
+
+</body>
+</html>
